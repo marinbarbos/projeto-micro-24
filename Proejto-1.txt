@@ -1,0 +1,57 @@
+https://cpulator.01xz.net/?sys=nios-de2-115
+Organizar o projeto
+1. entender o problema
+    - leitura do prompt: UART
+        - Usar Polling pq vai ficar esperando entrada
+        -----------
+        main.s
+        -----------
+        char cmd[20]
+        while (true) {
+            print("Put comando in terminal");
+            cmd = pegaComando();
+            switch(cmd[0]): 
+                case('0'): {
+                    TRATA_LED(cmd);
+                    break;
+                }
+                case('1'): {
+                    TRATA_ANIMACAO(cmd);
+                    break;
+                }
+                case('2'): {
+                    TRATA_CRONOMETRO(cmd);
+                    break;
+                }
+        }
+
+    - acionar leds: LEDs
+        -----------
+        led.s
+        -----------
+        
+    - animar leds: LEDs, Clock
+        - Usar interrupção pois o polling está ocupado
+        - Switch(controla o sentido da animação)
+        -----------
+        animacao.s
+        -----------
+
+    - cronometro: Clock Display 7 segmentos Pushbutton
+        - Interrupcao
+        - temporizador 200ms
+        - Base decimal
+        -----------
+        timer.s
+        -----------
+
+2. Cronograma Inicial
+    31/10 - Prompt
+    07/11 - Prompt, Acende LEDs e iniciar interrupções
+    14/11 - Interrupções e inicia Animação LEDs
+    21/11 - Animação LEDs e cronometro
+    28/11 - Cronometro
+    05/12 - Entrega
+
+3. Relatório
+    - principais dificuldades
