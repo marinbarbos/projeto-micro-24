@@ -195,7 +195,7 @@ LEDS_ANIMATION:
   /* Start timer interrupt config */
   movia r14, TIMER_ADDRESS
 
-  movia r8, 25000000 /* half second */
+  movia r8, 12000000 /* 200ms */
   stwio r8, 8(r14) /* lower counter part */
 
   srli r10, r8, 16 /* higher counter part */
