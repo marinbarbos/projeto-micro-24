@@ -4,7 +4,6 @@ João Vitor Figueredo
 Marina Barbosa Américo
 */  
 
-
 /**************************************************************************/
 /* Main Program                                                           */
 /*   Determines the maximum number of consecutive 1s in a data word.      */
@@ -18,14 +17,16 @@ Marina Barbosa Américo
 /**************************************************************************/
 
 /*Tratamento da interrupção */ 
-# 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F
+
+.equ SEV_SEG_MASK, 0x0F
+.equ SEV_SEG_ADDR, 0x10000020 /* Load 7 segments display address */
+.equ LOAD_CONTR_ADDR, 0x10001000 /* Load controller address */
+.equ TIMER_ADDR, 0x10002000
 
 ARR_DISPLAY:
-    # .byte 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0x5F, 0x70, 0x7F, 0x7B
-    .byte 0x7E, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7F, 0x67
-    
-    
-    .org 0x20
+    .byte 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x67
+
+.org 0x20
 RTI:
     rdctl et, ipending
     beq et, r0, OTHER_EXCEPTIONS
@@ -38,72 +39,94 @@ RTI:
 OTHER_EXCEPTIONS:
     eret
 
-/*Sub Rotina - de display */
-    .org 0x100    
+/* Sub Rotina - de display */
+.org 0x100    
 TIMER_EXEC:
-  movia r14, 0x10002000
-  stwio r0, (r14)
-  stwio  r13, (r15)
+    movia r14, 0x10002000
+    stwio r0, (r14)
+    stwio r13, (r15)
 
-  addi r7, r7, 1 /* Precisa de um registrador ou local no stack frame fixo pra guardar*/
-  addi r11, r11, 0x270F
-  blt r7, r11, CONVERT_DISPLAY:
-  mov r7, r0
+    addi r7, r7, 1  /* Incrementa a unidade */
 
-CONVERT_DISPLAY:
-  /*movi r6, 0
-  LOOP_DEC:
-    subi r7, r7, 10
-    addi r6, r6, 1
-    blt r7, 
-*/
-  # SEGUNDO DISPLAY(0010)
-  movia r13, ARR_DISPLAY
-  srli r12, r7, 4
-  andi r12, r12, 0x0F
-  add r13, r13, r12
-  ldb r13, (r13)
-  stbio r13, 1(r10)
-  
-  # PRIMEIRO DISPLAY(0001)
-  movia r13, ARR_DISPLAY
-  andi r12, r7, 0x0F
-  add r13, r13, r12
-  ldb r13, (r13)
-  stbio r13, (r10)
+    /* Verifica se a unidade atingiu dez para incrementar a dezena */
+    movi r11, 10
+    bge r7, r11, ADD_DEZENA
 
-  /*
-  # TERCEIRO DISPLAY(0100)
-  movia r13, ARR_DISPLAY
-  srli r12, r7, 8
-  andi r12, r12, 0x0F
-  add r13, r13, r12
-  ldb r13, (r13)
-  stbio r13, 2(r10)
+    /* Exibe os valores nos displays */
+    br SHOW_COUNTER
 
-  # QUARTO DISPLAY(1000)
-  movia r13, ARR_DISPLAY
-  srli r12, r7, 12
-  andi r12, r12, 0x0F
-  add r13, r13, r12
-  ldb r13, (r13)
-  stbio r13, 3(r10)    */
+ADD_DEZENA:
+    mov r7, r0          /* Reseta a unidade */
+    addi r16, r16, 1    /* Incrementa a dezena */
 
-  stwio r0, 12(r15)
+    /* Verifica se a dezena atingiu dez para incrementar a centena */
+    bge r16, r11, ADD_CENTENA
+    br SHOW_COUNTER
 
-ret
+ADD_CENTENA:
+    mov r16, r0         /* Reseta a dezena */
+    addi r17, r17, 1    /* Incrementa a centena */
 
-/*Configura as variaveis */
+    /* Verifica se a centena atingiu dez para incrementar o milhar */
+    bge r17, r11, ADD_MILHAR
+    br SHOW_COUNTER
+
+ADD_MILHAR:
+    mov r17, r0         /* Reseta a centena */
+    addi r18, r18, 1    /* Incrementa o milhar */
+
+    /* Verifica se o milhar atingiu dez para zerar o cronômetro */
+    bge r18, r11, RESET_COUNTER
+    br SHOW_COUNTER
+
+RESET_COUNTER:
+    mov r18, r0         /* Reseta o quarto dígito para 0 */
+
+SHOW_COUNTER:
+    /* PRIMEIRO DISPLAY - unidade */
+    movia r13, ARR_DISPLAY
+    andi r12, r7, SEV_SEG_MASK
+    add r13, r13, r12
+    ldb r13, (r13)
+    stbio r13, (r10)
+
+    /* SEGUNDO DISPLAY - dezena */
+    movia r13, ARR_DISPLAY
+    andi r12, r16, SEV_SEG_MASK
+    add r13, r13, r12
+    ldb r13, (r13)
+    stbio r13, 1(r10)
+
+    /* TERCEIRO DISPLAY - centena */
+    movia r13, ARR_DISPLAY
+    andi r12, r17, SEV_SEG_MASK
+    add r13, r13, r12
+    ldb r13, (r13)
+    stbio r13, 2(r10)
+
+    /* QUARTO DISPLAY - milhar */
+    movia r13, ARR_DISPLAY
+    andi r12, r18, SEV_SEG_MASK
+    add r13, r13, r12
+    ldb r13, (r13)
+    stbio r13, 3(r10)  
+
+    ret
+
+/* Configura as variáveis */
 .global _start
 _start:
 
-mov r7, r0/*Variable that acumulates the total */
-movia r10, 0x10000020 /* Load 7 segments display address */
+mov r7, r0        /* unidade */
+mov r16, r0       /* dezena */
+mov r17, r0       /* centena */
+mov r18, r0       /* milhar */
+movia r10, SEV_SEG_ADDR
 
-movia r15, 0x10001000 /* Load controller address */
+movia r15, LOAD_CONTR_ADDR
 
 /* Start timer interrupt config */
-movia r14, 0x10002000
+movia r14, TIMER_ADDR
 
 movia r8, 10000000 /* 200ms */
 stwio r8, 8(r14) /* lower counter part */
@@ -125,4 +148,3 @@ LACO:
   br LACO
 
 .end
-
