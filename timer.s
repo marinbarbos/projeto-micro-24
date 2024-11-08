@@ -51,12 +51,12 @@ TIMER_EXEC:
   mov r7, r0
 
 CONVERT_DISPLAY:
-  movi r6, 0
+  /*movi r6, 0
   LOOP_DEC:
     subi r7, r7, 10
     addi r6, r6, 1
     blt r7, 
-
+*/
   # SEGUNDO DISPLAY(0010)
   movia r13, ARR_DISPLAY
   srli r12, r7, 4
