@@ -16,9 +16,12 @@ Marina Barbosa Américo
 .include "constants.s"
 .extern LEDS_UP_DOWN
 .extern LEDS_ANIMATION
-.org 0x20
+.extern ADD_DEZENA
+.extern SHOW_COUNTER
+.extern LEDS_TIMER
 
 /* RTI AND TIMER EXCPETIONS */
+.org 0x20
 RTI:
     rdctl et, ipending
     beq et, r0, OTHER_EXCEPTIONS
@@ -34,6 +37,11 @@ OTHER_EXCEPTIONS:
 TIMER_EXEC:
   movia r14, TIMER_ADDRESS
   stwio r0, (r14)
+
+  addi r20, r0, 2
+  beq r20, r19, CRONOMETRO_CONFIG # Se a parte baixa do contador for maior que 200ms, significa que estamos usando cronômetro
+
+  # LEDS Animation Config
   movi r12, 1               # Inicializa r12 com 1
   movia r14, SWITCHES_ADDRESS /* SW slider switch base address */
   ldwio r10, 0(r14)
@@ -41,14 +49,23 @@ TIMER_EXEC:
   sll r12, r12, r9         # Desloca o bit 1 para a posição em r11
   stwio r12, 0(r15)
   addi r9, r9, 1
-ACENDE_LEDS:
-ret
+  ret
 
 DESLOCA_DIREITA:
   subi r9, r9, 1
   sll r12, r12, r9         # Desloca o bit 1 para a posição em r11
   stwio r12, 0(r15)
-  br ACENDE_LEDS
+  ret
+
+CRONOMETRO_CONFIG:
+    movia r15, LOAD_CONTR_ADDR
+    stwio r13, (r15)
+    addi r7, r7, 1  /* Incrementa a unidade */
+    /* Verifica se a unidade atingiu dez para incrementar a dezena */
+    movi r11, 10
+    bge r7, r11, ADD_DEZENA
+    /* Exibe os valores nos displays */
+    br SHOW_COUNTER    
 
 .text                         /* Início do código executável */
 .global _start
@@ -56,7 +73,7 @@ _start:
   /* Configuração inicial da pilha e UART */
   movia sp, 0x007FFFFC       /* Define o ponteiro de pilha para o endereço mais alto na SDRAM */
   movia r6, 0x10001000       /* Define o endereço base da JTAG UART */
-
+  
   /* Envia uma mensagem inicial */
   movia r8, TEXT_STRING      /* Aponta para a mensagem inicial */
 LOOP:
@@ -79,8 +96,10 @@ GET_JTAG:
   movi r10, '0'              /* Verifica se o comando é '0' para acender/apagar LEDs */
   beq r5, r10, LEDS_UP_DOWN
   movi r10, '1'              /* Verifica se o comando é '1' para animação (não implementado) */
+  addi r19, r0, 1
   beq r5, r10, LEDS_ANIMATION
   movi r10, '2'              /* Verifica se o comando é '2' para temporizador (não implementado) */
+  addi r19, r0, 2
   beq r5, r10, LEDS_TIMER
   br GET_JTAG                /* Retorna à espera de novos caracteres */
 
@@ -100,8 +119,6 @@ END_PUT:
   addi sp, sp, 4             /* Libera o espaço da pilha */
   ret                        /* Retorna da função */
 
-LEDS_TIMER:
-  ret
 
 .data
 TEXT_STRING:

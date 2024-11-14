@@ -37,7 +37,10 @@ LEDS_UP2:
   /* Converte caracteres ASCII para número e calcula posição do LED */
   subi r12, r12, '0'
   subi r5, r5, '0'
-  muli r12, r12, 10
+  # por algum motivo parou de pegar o muli r12, 10 (começou a disparar exceção)
+  slli r13, r12, 3            /* r13 = r12 * 8 (deslocamento de 3 bits) */
+  slli r14, r12, 1            /* r14 = r12 * 2 (deslocamento de 1 bit) */
+  add r12, r13, r14          /* r12 = r12 * 10 (soma dos dois resultados) */
   add r11, r12, r5
 
   /* Configura o LED específico */
@@ -75,7 +78,9 @@ LEDS_DOWN2:
   /* Converte caracteres ASCII para número e calcula posição do LED */
   subi r12, r12, '0'
   subi r5, r5, '0'
-  muli r12, r12, 10
+  slli r13, r12, 3            /* r13 = r12 * 8 (deslocamento de 3 bits) */
+  slli r14, r12, 1            /* r14 = r12 * 2 (deslocamento de 1 bit) */
+  add r12, r13, r14          /* r12 = r12 * 10 (soma dos dois resultados) */
   add r11, r12, r5
 
   /* Configura o LED específico */
