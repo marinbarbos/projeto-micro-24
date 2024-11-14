@@ -12,7 +12,7 @@ Marina Barbosa Américo
 * 2. Lê dados de caracteres da JTAG UART
 * 3. Interpreta os caracteres recebidos para acender e apagar os LEDs vermelhos
 ********************************************************************************/
-.equ RED_LIMIT, 0xF          /* Número máximo de LEDs vermelhos (15) */
+.equ RED_LIMIT, 0x11          /* Posição máxima dos LEDs vermelhos (17) */
 .equ RED_ADDRESS, 0x10000000 /* Endereço base dos LEDs vermelhos */
 .equ BREAK_LINE, 0x0a        /* Código ASCII para nova linha */
 .equ TIMER_ADDRESS, 0x10002000
@@ -136,7 +136,7 @@ LEDS_UP2:
   /* Configura o LED específico */
   movia r15, RED_ADDRESS
   movi r10, RED_LIMIT
-  bgt r11, r10, END_PUT
+  bgt r11, r10, FIM_UP
 
   ldwio r9, 0(r15)
   movi r12, 1
@@ -144,6 +144,7 @@ LEDS_UP2:
   or r9, r9, r12
   stwio r9, 0(r15)
 
+FIM_UP:
   movia r5, BREAK_LINE
   stwio r5, 0(r6)
   br GET_JTAG
@@ -174,7 +175,7 @@ LEDS_DOWN2:
   /* Configura o LED específico */
   movia r15, RED_ADDRESS
   movi r10, RED_LIMIT
-  bgt r11, r10, END_PUT
+  bgt r11, r10, FIM_DOWN
 
   ldwio r9, 0(r15)
   movi r12, 1
@@ -184,6 +185,7 @@ LEDS_DOWN2:
   and r9, r9, r12
   stwio r9, 0(r15)
 
+FIM_DOWN:
   movia r5, BREAK_LINE
   stwio r5, 0(r6)
   br GET_JTAG

@@ -46,7 +46,7 @@ LEDS_UP2:
   /* Configura o LED específico */
   movia r15, RED_ADDRESS
   movi r10, RED_LIMIT
-  bgt r11, r10, END_PUT
+  bgt r11, r10, FIM_UP
 
   ldwio r9, 0(r15)
   movi r12, 1
@@ -54,6 +54,7 @@ LEDS_UP2:
   or r9, r9, r12
   stwio r9, 0(r15)
 
+FIM_UP:
   movia r5, BREAK_LINE
   stwio r5, 0(r6)
   br GET_JTAG
@@ -86,7 +87,7 @@ LEDS_DOWN2:
   /* Configura o LED específico */
   movia r15, RED_ADDRESS
   movi r10, RED_LIMIT
-  bgt r11, r10, END_PUT
+  bgt r11, r10, FIM_DOWN
 
   ldwio r9, 0(r15)
   movi r12, 1
@@ -96,6 +97,7 @@ LEDS_DOWN2:
   and r9, r9, r12
   stwio r9, 0(r15)
 
+FIM_DOWN:
   movia r5, BREAK_LINE
   stwio r5, 0(r6)
   br GET_JTAG
