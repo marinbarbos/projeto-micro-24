@@ -6,9 +6,9 @@ Marina Barbosa Américo
 
 /**************************************************************************/
 /* Main Program                                                           */
-/*   seconds cronometer                                                   */
+/*   Determines the maximum number of consecutive 1s in a data word.      */
 /*                                                                        */
-/* r8   - one                                                             */
+/* r8   - Contains the switch data                                        */
 /* r9   - Switch data sum                                                 */
 /* r10  - Slide switch address for use                                    */
 /* r11  - Green LED address for use                                       */
@@ -32,18 +32,12 @@ RTI:
     beq et, r0, OTHER_EXCEPTIONS
     subi ea, ea, 4    
 
-    andi r12, et, 2
-    bne r12, r0, BUTTON_EXEC
-
     andi r12, et, 1
-    beq r12, r0, TIMER_EXEC
+    beq r12, r0, OTHER_EXCEPTIONS
+    call TIMER_EXEC
 
 OTHER_EXCEPTIONS:
     eret
-
-BUTTON_EXEC:
-    movia r14, 0x2
-    wrctl ienable, r14
 
 /* Sub Rotina - de display */
 .org 0x100    
@@ -127,7 +121,6 @@ mov r7, r0        /* unidade */
 mov r16, r0       /* dezena */
 mov r17, r0       /* centena */
 mov r18, r0       /* milhar */
-mov r12, r0
 movia r10, SEV_SEG_ADDR
 
 movia r15, LOAD_CONTR_ADDR
@@ -144,11 +137,8 @@ stwio r9, 12(r14)
 movi r11, 0b111
 stwio r11, 4(r14) /* init timer */
 
-movia r15, 0x10000050/*Load the the edge bits */
-movi r14, 0b11 /* timer IRQ is 0 pushbutton IRQ is 1*/
-stwio r14, 8(r15)
-
-wrctl ienable, r14 /*Enable pushbutton 1 & timer*/ 
+movi r14, 1  /* timer IRQ is 0 */
+wrctl ienable, r14 /*Enable timer */ 
 
 /* idk what is this tbh */
 movia r8, 1
