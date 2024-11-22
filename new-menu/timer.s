@@ -65,7 +65,7 @@ SHOW_COUNTER:
 
     ret
 
-/* Configura as variáveis */
+/* Configura as variaveis */
 .global LEDS_TIMER
 LEDS_TIMER:
 
@@ -95,13 +95,13 @@ movia r8, 1
 wrctl status, r8
 
 LOOP_TIMER:
-    /* Função que determina se irá apagar ou acender os LEDs */
-  ldwio r4, 0(r6)            /* Lê o próximo dado da UART */
-  andi r8, r4, 0x8000        /* Verifica se há novos dados */
-  beq r8, r0, LOOP_TIMER   /* Se não houver dados, espera */
+    /* Funcao que determina se ira apagar ou acender os LEDs */
+  ldwio r4, 0(r6)            /* Le o proximo dado da UART */
+  andi r8, r4, 0x8000        /* Verifica se ha novos dados */
+  beq r8, r0, LOOP_TIMER   /* Se nao houver dados, espera */
   andi r5, r4, 0x00ff        /* Extrai o byte menos significativo */
   call PUT_JTAG              /* Escreve o caractere */
-  movi r10, '1'              /* Verifica se o comando é '1' para apagar LEDs */
+  movi r10, '1'              /* Verifica se o comando e '1' para apagar LEDs */
   bne r5, r10, LOOP_TIMER
   movi r14, 0  /* timer IRQ is 0 */
   wrctl ienable, r14 /*Desable timer */
