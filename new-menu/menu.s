@@ -22,24 +22,78 @@ Marina Barbosa Américo
 
 /* RTI AND TIMER EXCPETIONS */
 .org 0x20
-RTI:
-    rdctl et, ipending
-    beq et, r0, OTHER_EXCEPTIONS
+EXCEPTION_HANDLER:
+  subi sp, sp, 16 /* make room on the stack */
+  stw et, 0(sp)
+  rdctl et, ctl4
+  beq et, r0, SKIP_EA_DEC /* interrupt is not external */
+  subi ea, ea, 4 /* must decrement ea by one instruction */
+  /* for external interrupts, so that the */
+  /* interrupted instruction will be run after eret */
 
-    subi ea, ea, 4    
-    andi r12, et, 1
-    beq r12, r0, OTHER_EXCEPTIONS
-    call TIMER_EXEC
+SKIP_EA_DEC:
+  stw ea, 4(sp) /* save all used registers on the Stack */
+  stw ra, 8(sp) /* needed if call inst is used */
+  stw r22, 12(sp)
+  rdctl et, ctl4
+  bne et, r0, CHECK_LEVEL_0 /* exception is an external interrupt */
 
-OTHER_EXCEPTIONS:
-    eret
+NOT_EI: /* exception must be unimplemented instruction or TRAP */
+  br END_ISR /* instruction. This code does not handle those cases */
 
-TIMER_EXEC:
+CHECK_LEVEL_0: /* interval timer is interrupt level 0 */
+  andi r22, et, 0b1
+  beq r22, r0, CHECK_LEVEL_1
+  call INTERVAL_TIMER_ISR
+  br END_ISR
+
+CHECK_LEVEL_1: /* pushbutton port is interrupt level 1 */
+  andi r22, et, 0b10
+  beq r22, r0, END_ISR /* other interrupt levels are not handled in this code */
+  call PUSHBUTTON_ISR
+
+END_ISR:
+  ldw et, 0(sp) /* restore all used register to previous values */
+  ldw ea, 4(sp)
+  ldw ra, 8(sp) /* needed if call inst is used */
+  ldw r22, 12(sp)
+  addi sp, sp, 16
+  eret
+
+/* Sub Rotina - de display */
+.org 0x100    
+PUSHBUTTON_ISR:
+  subi sp, sp, 20 /* reserve space on the stack */
+  stw ra, 0(sp)
+  stw r10, 4(sp)
+  stw r11, 8(sp)
+  stw r12, 12(sp)
+  stw r13, 16(sp)
+  movia r10, 0x10000050 /* base address of pushbutton KEY parallel port */
+  ldwio r11, 0xC(r10) /* read edge capture register */
+  stwio r0, 0xC(r10) /* clear the interrupt */  
+  beq r0, r19, DESPAUSA
+  mov r19, r0
+  br END_PUSHBUTTON_ISR
+DESPAUSA:
+  movi r19, 1
+  br END_PUSHBUTTON_ISR
+
+END_PUSHBUTTON_ISR:
+  ldw ra, 0(sp) /* Restore all used register to previous values */
+  ldw r10, 4(sp)
+  ldw r11, 8(sp)
+  ldw r12, 12(sp)
+  ldw r13, 16(sp)
+  addi sp, sp, 20
+  ret
+
+INTERVAL_TIMER_ISR:
   movia r14, TIMER_ADDRESS
   stwio r0, (r14)
 
   addi r20, r0, 2
-  beq r20, r19, CRONOMETRO_CONFIG # Se a parte baixa do contador for maior que 200ms, significa que estamos usando cronômetro
+  beq r20, r7, CRONOMETRO_CONFIG # Se a parte baixa do contador for maior que 200ms, significa que estamos usando cronômetro
 
   # LEDS Animation Config
   movi r12, 1               # Inicializa r12 com 1
@@ -58,12 +112,10 @@ DESLOCA_DIREITA:
   ret
 
 CRONOMETRO_CONFIG:
-    movia r15, LOAD_CONTR_ADDR
-    stwio r13, (r15)
-    addi r7, r7, 1  /* Incrementa a unidade */
+    add r23, r23, r19  /* Incrementa a unidade */
     /* Verifica se a unidade atingiu dez para incrementar a dezena */
     movi r11, 10
-    bge r7, r11, ADD_DEZENA
+    bge r23, r11, ADD_DEZENA
     /* Exibe os valores nos displays */
     br SHOW_COUNTER    
 
@@ -95,12 +147,10 @@ GET_JTAG:
   /* Interpreta o caractere recebido como comando */
   movi r10, '0'              /* Verifica se o comando é '0' para acender/apagar LEDs */
   beq r5, r10, LEDS_UP_DOWN
-  movi r10, '1'              /* Verifica se o comando é '1' para animação (não implementado) */
-  addi r19, r0, 1
-  beq r5, r10, LEDS_ANIMATION
-  movi r10, '2'              /* Verifica se o comando é '2' para temporizador (não implementado) */
-  addi r19, r0, 2
-  beq r5, r10, LEDS_TIMER
+  movi r10, '1'              /* Verifica se o comando é '1' para animação */
+  beq r5, r10, FIRST_FUNCTION
+  movi r10, '2'              /* Verifica se o comando é '2' para temporizador */
+  beq r5, r10, SECOND_FUNCTION
   br GET_JTAG                /* Retorna à espera de novos caracteres */
 
 .global PUT_JTAG
@@ -119,6 +169,53 @@ END_PUT:
   addi sp, sp, 4             /* Libera o espaço da pilha */
   ret                        /* Retorna da função */
 
+FIRST_FUNCTION:
+  /* Lê e processa caracteres da UART */
+  ldwio r4, 0(r6)            /* Lê o registro de dados da JTAG UART */
+  andi r8, r4, 0x8000        /* Verifica se há novos dados */
+  beq r8, r0, FIRST_FUNCTION       /* Se não houver dados, espera */
+  andi r5, r4, 0x00ff        /* Extrai o byte menos significativo para obter o caractere */
+  call PUT_JTAG              /* Escreve o caractere na UART */
+  /* Interpreta o caractere recebido como comando */
+  movi r10, '0'              /* Verifica se o comando é '0' para acender/apagar LEDs */
+  beq r5, r10, LEDS_ANIMATION
+  movi r10, '1'
+  beq r5, r10, STOP_ANIMATION
+  br GET_JTAG
+
+STOP_ANIMATION:
+  movi r14, 0  /* timer IRQ is 0 */
+  wrctl ienable, r14 /*Desable timer */
+  stwio r0, 0(r15) 
+  movia r5, BREAK_LINE
+  stwio r5, 0(r6)
+  br GET_JTAG
+
+SECOND_FUNCTION:
+  /* Lê e processa caracteres da UART */
+  ldwio r4, 0(r6)            /* Lê o registro de dados da JTAG UART */
+  andi r8, r4, 0x8000        /* Verifica se há novos dados */
+  beq r8, r0, SECOND_FUNCTION       /* Se não houver dados, espera */
+  andi r5, r4, 0x00ff        /* Extrai o byte menos significativo para obter o caractere */
+  call PUT_JTAG              /* Escreve o caractere na UART */
+  /* Interpreta o caractere recebido como comando */
+  movi r10, '0'              /* Verifica se o comando é '0' para acender/apagar LEDs */
+  beq r5, r10, LEDS_TIMER
+  movi r10, '1'
+  beq r5, r10, STOP_TIMER
+  br GET_JTAG
+  
+STOP_TIMER:
+  mov r23, r0        /* unidade */
+  mov r16, r0       /* dezena */
+  mov r17, r0       /* centena */
+  mov r18, r0       /* milhar */
+  call SHOW_COUNTER
+  movia r5, BREAK_LINE
+  stwio r5, 0(r6)  
+  movi r14, 0  /* timer IRQ is 0 */
+  wrctl ienable, r14 /*Enable timer */ 
+  br GET_JTAG
 
 .data
 TEXT_STRING:

@@ -7,7 +7,7 @@ ARR_DISPLAY:
 
 .global ADD_DEZENA
 ADD_DEZENA:
-    mov r7, r0          /* Reseta a unidade */
+    mov r23, r0          /* Reseta a unidade */
     addi r16, r16, 1    /* Incrementa a dezena */
 
     /* Verifica se a dezena atingiu dez para incrementar a centena */
@@ -37,7 +37,7 @@ RESET_COUNTER:
 SHOW_COUNTER:
     /* PRIMEIRO DISPLAY - unidade */
     movia r13, ARR_DISPLAY
-    andi r12, r7, SEV_SEG_MASK
+    andi r12, r23, SEV_SEG_MASK
     add r13, r13, r12
     ldb r13, (r13)
     stbio r13, (r10)
@@ -68,44 +68,34 @@ SHOW_COUNTER:
 /* Configura as variáveis */
 .global LEDS_TIMER
 LEDS_TIMER:
+  /* set up stack pointer */
+  mov r23, r0        /* unidade */
+  mov r16, r0       /* dezena */
+  mov r17, r0       /* centena */
+  mov r18, r0       /* milhar */
+  movia r10, SEV_SEG_ADDR
+  movia r15, LOAD_CONTR_ADDR
+  movi r19, 1       /* contador */
 
-mov r7, r0        /* unidade */
-mov r16, r0       /* dezena */
-mov r17, r0       /* centena */
-mov r18, r0       /* milhar */
-movia r10, SEV_SEG_ADDR
-
-/* Start timer interrupt config */
-movia r14, TIMER_ADDRESS
-
-movia r8, 10000000 /* 200ms */
-stwio r8, 8(r14) /* lower counter part */
-
-srli r9, r8, 16 /* higher counter part */
-stwio r9, 12(r14) 
-
-movi r11, 0b111
-stwio r11, 4(r14) /* init timer */
-
-movi r14, 1  /* timer IRQ is 0 */
-wrctl ienable, r14 /*Enable timer */ 
-
-/* idk what is this tbh */
-movia r8, 1
-wrctl status, r8
-
-LOOP_TIMER:
-    /* Função que determina se irá apagar ou acender os LEDs */
-  ldwio r4, 0(r6)            /* Lê o próximo dado da UART */
-  andi r8, r4, 0x8000        /* Verifica se há novos dados */
-  beq r8, r0, LOOP_TIMER   /* Se não houver dados, espera */
-  andi r5, r4, 0x00ff        /* Extrai o byte menos significativo */
-  call PUT_JTAG              /* Escreve o caractere */
-  movi r10, '1'              /* Verifica se o comando é '1' para apagar LEDs */
-  bne r5, r10, LOOP_TIMER
-  movi r14, 0  /* timer IRQ is 0 */
-  wrctl ienable, r14 /*Desable timer */
-  stwio r0, 0(r15) 
-  movia r5, BREAK_LINE
-  stwio r5, 0(r6)
+  movia sp, 0x007FFFFC /* stack starts from highest memory address in SDRAM */
+  movia r20, 0x10002000 /* internal timer base address */
+  /* set the interval timer period for scrolling the HEX displays */
+  movia r12, 0x2F4CF90 /* 1s */
+  sthio r12, 8(r20) /* store the low halfword of counter start value */
+  srli r12, r12, 16
+  sthio r12, 0xC(r20) /* high halfword of counter start value */
+  /* start interval timer, enable its interrupts */
+  movi r15, 0b0111 /* START = 1, CONT = 1, ITO = 1 */
+  sthio r15, 4(r20)
+  /* write to the pushbutton port interrupt mask register */
+  movia r15, 0x10000050 /* pushbutton key base address */
+  movi r7, 0b00010 /* set 3 interrupt mask bits (bit 0 is Nios II reset) */
+  stwio r7, 8(r15) /* interrupt mask register is (base + 8) */
+  /* enable Nios II processor interrupts */
+  movi r7, 0b011 /* set interrupt mask bits for levels 0 (interval */
+  wrctl ienable, r7 /* timer) and level 1 (pushbuttons) */
+  movi r7, 1
+  wrctl status, r7 /* turn on Nios II interrupt processing */
+  movi r7, 2
   br GET_JTAG
+  
