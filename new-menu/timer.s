@@ -1,9 +1,24 @@
+/*
+João Pedro Brum Terra
+João Vitor Figueredo
+Marina Barbosa Américo
+*/
+
 .include "nios_macros.s"
 .include "constants.s"
 .extern PUT_JTAG
 .extern GET_JTAG
+
+/**************************************************************************
+* timer.s
+* Cronometro decimal de 0 ate 9999
+*
+****************************************************************************/
+
+/* Vetor com os codigos para ativacao das secoes dos displays de 7 segmentos */
 ARR_DISPLAY:
     .byte 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x67
+    /* 0 1 2 3 4 5 6 7 8 9 */
 
 .global ADD_DEZENA
 ADD_DEZENA:
@@ -61,41 +76,42 @@ SHOW_COUNTER:
     andi r12, r18, SEV_SEG_MASK
     add r13, r13, r12
     ldb r13, (r13)
-    stbio r13, 3(r10)  
+    stbio r13, 3(r10)
 
     ret
 
 /* Configura as variáveis */
 .global LEDS_TIMER
 LEDS_TIMER:
-  /* set up stack pointer */
-  mov r23, r0        /* unidade */
-  mov r16, r0       /* dezena */
-  mov r17, r0       /* centena */
-  mov r18, r0       /* milhar */
+  mov r16, r0       /* zera dezena */
+  mov r17, r0       /* zera centena */
+  mov r18, r0       /* zera milhar */
+  mov r23, r0       /* zera unidade */
+  movi r19, 1       /* inicia contador */
   movia r10, SEV_SEG_ADDR
   movia r15, LOAD_CONTR_ADDR
-  movi r19, 1       /* contador */
+  movia r20, TIMER_ADDRESS
 
-  movia sp, 0x007FFFFC /* stack starts from highest memory address in SDRAM */
-  movia r20, 0x10002000 /* internal timer base address */
-  /* set the interval timer period for scrolling the HEX displays */
+  /* Configura o stack pointer */
+  movia sp, 0x007FFFFC  /* Define o ponteiro de pilha para o endereço mais alto na SDRAM */
+
+  /* Configura o temporizador */
   movia r12, 0x2F4CF90 /* 1s */
-  sthio r12, 8(r20) /* store the low halfword of counter start value */
+  sthio r12, 8(r20) /* Valor baixo do contador*/
   srli r12, r12, 16
-  sthio r12, 0xC(r20) /* high halfword of counter start value */
-  /* start interval timer, enable its interrupts */
+  sthio r12, 0xC(r20) /* Valor alto do contador */
   movi r15, 0b0111 /* START = 1, CONT = 1, ITO = 1 */
   sthio r15, 4(r20)
-  /* write to the pushbutton port interrupt mask register */
-  movia r15, 0x10000050 /* pushbutton key base address */
-  movi r7, 0b00010 /* set 3 interrupt mask bits (bit 0 is Nios II reset) */
-  stwio r7, 8(r15) /* interrupt mask register is (base + 8) */
-  /* enable Nios II processor interrupts */
-  movi r7, 0b011 /* set interrupt mask bits for levels 0 (interval */
-  wrctl ienable, r7 /* timer) and level 1 (pushbuttons) */
+
+  /* Configura o Push Button 1 */
+  movia r15, PUSHBUTTON_ADDR
+  movi r7, 0b00010 /* Mascara do Push Button 1 */
+  stwio r7, 8(r15) /* Para trabalhar com o botao 1 usamos endereco base + 8 */
+
+  movi r7, 0b011 /* Habilita IRQ0 e IRQ1  para interrupcoes do imer e do push button 1*/
+  wrctl ienable, r7
+
   movi r7, 1
-  wrctl status, r7 /* turn on Nios II interrupt processing */
+  wrctl status, r7 /* Habilita interrupcoes */
   movi r7, 2
   br GET_JTAG
-  
